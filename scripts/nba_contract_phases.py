@@ -19,20 +19,18 @@ stats_and_salaries = stats_and_salaries.sort_values(by=['player', 'season']).res
 stats_and_salaries['prev_salary'] = stats_and_salaries.groupby('player')['salary'].shift(1)
 stats_and_salaries['salary_growth_pct'] = (stats_and_salaries['salary'] - stats_and_salaries['prev_salary']) / stats_and_salaries['prev_salary']
 
-# Initialize target analysis tracking columns
-stats_and_salaries['phase'] = 'Regular Year'
-stats_and_salaries['contract_event_id'] = np.nan
+# Initialize tracking columns directly to "Baseline Year 1"
+stats_and_salaries['phase'] = 'Baseline Year 1'
+stats_and_salaries['contract_event_id'] = 1.0
 
-# PLAYER-SCOPED MULTI-CONTRACT ALGORITHM
+# --- PASS 1: MAP THE CONTRACT CRITICAL PEAKS ---
 player_counts = {}
-
-# Apply absolute value to capture changes >= 12% or <= -0.12 (salary increase or decrease of 12% or more)
 contract_event_indices = stats_and_salaries[stats_and_salaries['salary_growth_pct'].abs() >= 0.12].index
 
+# Use .loc to select player per index
 for idx in contract_event_indices:
     player = stats_and_salaries.loc[idx, 'player']
     
-    # Increment tracking count uniquely for this individual
     if player not in player_counts:
         player_counts[player] = 1
     else:
@@ -40,24 +38,42 @@ for idx in contract_event_indices:
         
     event_num = player_counts[player]
     
-    # Tag Post-Contract Year (The Change Year - Spike or Drop)
+    # Tag Post-Contract Year
     stats_and_salaries.loc[idx, 'phase'] = f'Post-Contract Year {event_num}'
-    stats_and_salaries.loc[idx, 'contract_event_id'] = event_num
+    stats_and_salaries.loc[idx, 'contract_event_id'] = float(event_num)
     
     # Tag Contract Year (One row above contract change, if same player)
     contract_idx = idx - 1
     if contract_idx >= 0 and stats_and_salaries.loc[contract_idx, 'player'] == player:
         stats_and_salaries.loc[contract_idx, 'phase'] = f'Contract Year {event_num}'
-        stats_and_salaries.loc[contract_idx, 'contract_event_id'] = event_num
-        
-        # Tag Baseline Years (Up to 3 rows above the contract year)
-        for offset in range(1, 4):
-            base_idx = contract_idx - offset
-            if base_idx >= 0 and stats_and_salaries.loc[base_idx, 'player'] == player:
-                # Shield existing contract boundaries from previous events
-                if 'Year' not in str(stats_and_salaries.loc[base_idx, 'phase']):
-                    stats_and_salaries.loc[base_idx, 'phase'] = f'Baseline Year {event_num}'
-                    stats_and_salaries.loc[base_idx, 'contract_event_id'] = event_num
+        stats_and_salaries.loc[contract_idx, 'contract_event_id'] = float(event_num)
+
+
+# --- PASS 2: CHRONOLOGICAL BASELINE INCREMENTOR ---
+# This steps forward through the data to update baseline numbers sequentially 
+# once a player moves past their first or second contract events.
+current_baseline_num = 1
+current_event_id = 1.0
+
+for i in range(len(stats_and_salaries)):
+    # Reset tracking variables whenever switch to a brand new player happens
+    if i == 0 or stats_and_salaries.loc[i, 'player'] != stats_and_salaries.loc[i-1, 'player']:
+        current_baseline_num = 1
+        current_event_id = 1.0
+    
+    phase_str = str(stats_and_salaries.loc[i, 'phase'])
+    
+    # If the row was caught by Pass 1 as a contract/post-contract year, 
+    # update otracking numbers to match that event window
+    if 'Contract' in phase_str:
+        current_event_id = stats_and_salaries.loc[i, 'contract_event_id']
+        # If they just finished a contract loop (Post-Contract Year), the NEXT baseline becomes event + 1
+        if 'Post-Contract' in phase_str:
+            current_baseline_num = int(current_event_id) + 1
+    else:
+        # If it's a normal unassigned year, assign it the active baseline version cleanly
+        stats_and_salaries.loc[i, 'phase'] = f'Baseline Year {current_baseline_num}'
+        stats_and_salaries.loc[i, 'contract_event_id'] = float(current_event_id)
 
 # EXPORT CLEAN SEPARATE DESIGNATION MAP
 output_columns = ['player', 'season', 'salary', 'salary_growth_pct', 'phase', 'contract_event_id']
