@@ -82,9 +82,9 @@ print("Generating positional dual-phase charts...")
 position_focus = {
     'C':  {'fig_num': 2, 'label': 'Centers', 'metrics': ['total_rebounds', 'blocks', 'hustle_factor']},
     'PF': {'fig_num': 3, 'label': 'Power Forwards', 'metrics': ['total_rebounds', 'blocks', 'hustle_factor']},
-    'PG': {'fig_num': 4, 'label': 'Point Guards', 'metrics': ['assists', 'overall_impact_score', 'offensive_creation_rate']},
-    'SG': {'fig_num': 5, 'label': 'Shooting Guards', 'metrics': ['assists', 'overall_impact_score', 'offensive_creation_rate']},
-    'SF': {'fig_num': 6, 'label': 'Small Forwards', 'metrics': ['points', 'three_point_percentage', 'efficient_scoring_value']}
+    'PG': {'fig_num': 4, 'label': 'Point Guards', 'metrics': ['assists', 'offensive_creation_rate', 'overall_impact_score']},
+    'SG': {'fig_num': 5, 'label': 'Shooting Guards', 'metrics': ['points', 'efficient_scoring_value', 'overall_impact_score']},
+    'SF': {'fig_num': 6, 'label': 'Small Forwards', 'metrics': ['points', 'efficient_scoring_value', 'overall_impact_score']}
 }
 
 for pos, config in position_focus.items():
@@ -119,8 +119,8 @@ for pos, config in position_focus.items():
     x = np.arange(len(clean_metric_names))
     width = 0.35
     
-    rects1 = plt.bar(x - width/2, avg_pushes, width, label='Contract Yr Spike (vs Baseline)', color='#3b82f6')
-    rects2 = plt.bar(x + width/2, avg_drops, width, label='Post-Contract Drop (vs Contract Yr)', color='#ef4444')
+    rects1 = plt.bar(x - width/2, avg_pushes, width, label='Contract Yr vs Baseline', color='#3b82f6')
+    rects2 = plt.bar(x + width/2, avg_drops, width, label='Post-Contract Yr vs Contract Yr', color='#ef4444')
     
     plt.axhline(0, color='black', linewidth=0.8)
     plt.ylabel("Average Performance Shift (%)", fontsize=11)
