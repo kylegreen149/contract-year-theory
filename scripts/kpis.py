@@ -70,16 +70,19 @@ for player, player_df in merged_df.groupby('player'):
             b_val = base_means[metric] + 1e-6
             c_val = contract_means[metric] + 1e-6
             
-            # 1. Pct Change from Baseline
+            # 1. Pct Change from Baseline (Only pin to 0.0 if it explicitly says 'Baseline')
             event_df_mapped[f'{metric}_pct_change_from_baseline'] = np.where(
-                event_df_mapped['phase'].str.contains('Baseline Year', na=False),
+                event_df_mapped['phase'].str.contains('Baseline', case=False, na=False),
                 0.0,
                 (event_df_mapped[metric] - b_val) / b_val
             )
             
-            # 2. Pct Change from Contract Year
+            # 2. Pct Change from Contract Year (Pin to 0.0 ONLY if it contains 'Contract' but NOT 'Post')
+            is_contract_peak = event_df_mapped['phase'].str.contains('Contract', case=False, na=False) & \
+                               ~event_df_mapped['phase'].str.contains('Post', case=False, na=False)
+                               
             event_df_mapped[f'{metric}_pct_change_from_contract_year'] = np.where(
-                event_df_mapped['phase'].str.contains('Contract Year', na=False),
+                is_contract_peak,
                 0.0,
                 (event_df_mapped[metric] - c_val) / c_val
             )
@@ -87,7 +90,6 @@ for player, player_df in merged_df.groupby('player'):
             # Clean up infinite/missing values
             for suffix in ['_pct_change_from_baseline', '_pct_change_from_contract_year']:
                 event_df_mapped[f'{metric}{suffix}'] = event_df_mapped[f'{metric}{suffix}'].replace([np.inf, -np.inf], np.nan).fillna(0.0)
-                
         processed_frames.append(event_df_mapped)
 
 final_processed_df = pd.concat(processed_frames).sort_values(by=['player', 'season']).reset_index(drop=True)
